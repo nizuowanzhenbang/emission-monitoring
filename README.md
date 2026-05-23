@@ -1,19 +1,50 @@
-# 发电厂环保排放在线监测系统
+# 烟囱守夜人 · 发电厂环保排放在线监测系统
 
-> CEMS 连续监测 + 基准氧折算 + 超标告警闭环 + 合规报表，适配燃煤机组**超低排放**（GB13223-2011）。
+> 🔥 火电厂一旦 SO₂/NOx/烟尘超标，罚款按天计、严重的会被勒令停机。但 CEMS 每分钟上报一条、十几个排放口、365 × 24 不停转，人工根本盯不过来。
 
-智慧发电厂 6 子系统中的"环保排放"模块，与 [equipment-inspection](https://github.com/nizuowanzhenbang/equipment-inspection)、[plant-safety](https://github.com/nizuowanzhenbang/plant-safety) 共享同一座电厂的设备/机组数据，但流程独立。
+**这套系统帮你把烟囱"盯"起来**：把 CEMS 分钟级读数接进来，自动按 GB13223 折算到 6%O₂ 基准氧、对超低排放限值判定；任何一秒超标当场建告警、走五级闭环；月底一键出合规率 / 可用率 / 超限分钟的合规报表，所有处置过程都留痕可追溯。
 
-## 技术栈
+> ⚠️ **免责声明**：本系统是 **厂内闭环管理工具**，不能替代国控点 CNEMC 联网上报，不能作为执法依据。
 
-| 层 | 选型 |
+---
+
+## ⚡ 30 秒看明白你能用它做什么
+
+| 你是谁 | 它帮你做什么 |
 |---|---|
-| 后端 | FastAPI · SQLAlchemy · Pydantic v2 · python-jose · passlib |
-| 前端 | React 18 · TypeScript · Ant Design 5 · ECharts · Zustand · Vite |
-| 数据 | SQLite（开发）/ PostgreSQL（生产） |
-| 端口 | 后端 `8004` / 前端 `5176`（避开兄弟系统 8000/8001/8003 与 5173/5174/5175） |
+| 🏢 环保部主任 | 大屏一眼看完今天的合规率、未结告警、CEMS 在线率 |
+| 👷 运行人员 | 超标当场弹告警，按提示确认 → 处置 → 恢复达标，全程留痕 |
+| 📈 数据分析 | 月底点一下"生成报表"，平均值/峰值/超限分钟/合规率自动算好 |
+| 🛡️ 监督员 | 报表审批 + 告警归档，谁批的、什么时候批的可追溯 |
 
-## 快速开始
+---
+
+## ✨ 核心场景
+
+### 🖥️ 实时大屏：六个排放口同框，限值红线压在曲线上
+每个合规上报点（烟囱出口）显示最新折算 SO₂ / NOx / 烟尘 vs 超低限值（**35 / 50 / 10 mg/Nm³**），红线一过当场闪烁。
+
+### 🚨 超标告警闭环：从"出事"到"归档"全链路
+- 同一点位重复超标自动合并，累计持续时间，不刷屏
+- 持续 ≥ 30 分钟自动升级 `ESCALATED`，强制监督员介入
+- 严重度按 1.5 × 限值划线，分 `NORMAL` / `GENERAL` / `SEVERE`
+- 状态机：`OPEN → ACKNOWLEDGED → HANDLING → RESOLVED → CLOSED`
+
+### 📊 一键合规报表
+日 / 月 / 年 / 临时四种类型，每个合规口自动算：
+- 折算后**均值 / 峰值**
+- **CEMS 可用率**（监管合规线 95%）
+- **超限分钟数 + 合规率**
+
+> 💡 **为什么要"折算"？**
+> 排放浓度是会"骗人"的——烟气多稀释一点，浓度数字就下来了，但污染物总量并没减少。
+> 所以 GB13223 规定：所有浓度都要折算到 6% 基准氧的"等效浓度"。公式：
+> `C折 = C实测 × (21 - 6) / (21 - O₂实测)`
+> 本系统在数据入库时**一次性算好折算值**，后续告警 / 均值 / 报表都直接读，不用每次重算。
+
+---
+
+## 🚀 快速开始
 
 ```bash
 # 后端
@@ -30,7 +61,7 @@ npm run dev                          # http://localhost:5176
 
 打开 http://localhost:5176 → 用 `admin / admin123` 登录。
 
-## 默认账户
+## 🔐 默认账户
 
 | 用户名 | 密码 | 角色 | 主要权限 |
 |---|---|---|---|
@@ -40,44 +71,11 @@ npm run dev                          # http://localhost:5176
 | `supervisor` | `supervisor123` | 监督员 | 告警归档、报表审批 |
 | `viewer` | `viewer123` | 只读 | 仅查看 |
 
-## 业务能力（v1.0）
+> 🔒 生产部署请务必删掉 seed 用户、改强密码、关掉 `--reload`。
 
-### 1. 机组 & 排放口台账
-- 机组：编号 / 容量 MW / 燃料类型 / 投产日期 / 状态（RUNNING/STANDBY/OUTAGE/DECOMMISSIONED）
-- 排放口分 5 类：`STACK`（烟囱出口，合规上报）/ `PRE_DESULFUR` / `POST_DESULFUR` / `PRE_DENOX` / `POST_DENOX`
-- 每个点位绑定一份排放标准（默认"超低排放 2014"）
+---
 
-### 2. CEMS 仪表
-- 状态机：`ONLINE` / `OFFLINE` / `CALIBRATING` / `FAULT`
-- 日校 + 检定有效期跟踪
-- CEMS 在 `CALIBRATING` 时入库读数自动标 `CALIBRATING`；`FAULT` 时标 `INVALID`
-
-### 3. 时序读数（分钟级）
-- `POST /api/readings/ingest` 批量摄取（≤1000 条/批）
-- 入库时**一次性算好折算值**：`C折 = C实测 × (21 - 6) / (21 - O2实测)`（O2≥20.5 视为异常不折算）
-- 每条标 `severity ∈ {NORMAL, GENERAL, SEVERE}` + `exceeded` 指标列表
-- 仅 `VALID` 数据参与超标判定；仅合规上报口（`is_compliance_point=true`，即 STACK）触发告警
-
-### 4. 超标告警闭环
-- 自动建告警：同点位若已有 `OPEN/ACKNOWLEDGED/HANDLING` 未结告警则合并（更新峰值 + 持续分钟），否则新建
-- 持续 ≥ `30min` 自动升级为 `ESCALATED`
-- 严重度：超限 ≥1.5× 即 `SEVERE`
-- 状态机：`OPEN → ACKNOWLEDGED → HANDLING → RESOLVED → CLOSED`（监督员归档）
-- 恢复达标自动写 `ended_at`
-
-### 5. 合规报表
-- 日 / 月 / 年 / 临时四种类型
-- 自动计算：每个合规上报口的 平均/峰值 SO₂/NOx/烟尘、可用率、超限分钟、合规率
-- 状态机：`DRAFT → SUBMITTED → APPROVED → ARCHIVED`，DRAFT 由分析员生成，APPROVED 由监督员审批
-
-### 6. Dashboard
-- 概览 KPI：CEMS 在线/故障数、今日/未结/严重未结告警、30 天合规率、30 天 CEMS 可用率（合规线 95%）
-- 实时大屏：每个合规口最新值 + 限值红线
-- 24h 趋势（折算 SO₂/NOx/烟尘小时均值）
-- 告警分布（按等级/状态）
-- 各排放口合规率柱图
-
-## 业务规则速查
+## 📋 业务规则速查
 
 | 项 | 阈值 |
 |---|---|
@@ -88,7 +86,20 @@ npm run dev                          # http://localhost:5176
 | CEMS 月在线率合规线 | 95% |
 | O₂ 异常阈值 | ≥ 20.5% 不折算 |
 
-## 目录结构
+排放口分 5 类：`STACK`（烟囱出口，合规上报）/ `PRE_DESULFUR` / `POST_DESULFUR` / `PRE_DENOX` / `POST_DENOX`。**只有 STACK 触发告警**，其它点位只记录、用于对比脱硫脱硝效果。
+
+---
+
+## 🛠️ 技术栈
+
+| 层 | 选型 |
+|---|---|
+| 后端 | FastAPI · SQLAlchemy · Pydantic v2 · python-jose · passlib |
+| 前端 | React 18 · TypeScript · Ant Design 5 · ECharts · Zustand · Vite |
+| 数据 | SQLite（开发）/ PostgreSQL（生产） |
+| 端口 | 后端 `8004` / 前端 `5176` |
+
+## 📁 目录结构
 
 ```
 emission-monitoring/
@@ -112,24 +123,29 @@ emission-monitoring/
         └── types/
 ```
 
-## 与兄弟系统的关系
+---
+
+## 🔗 智慧发电厂全家桶中的位置
+
+本项目是 [smart-power-plant](https://github.com/nizuowanzhenbang/smart-power-plant) 七大子系统中的"环保排放"模块，与下列兄弟系统共用同一座电厂的机组数据，但流程独立：
 
 | 系统 | 端口 | 关系 |
 |---|---|---|
-| [equipment-inspection](https://github.com/nizuowanzhenbang/equipment-inspection) | 8003 / 5175 | 共享设备台账；未来 CEMS 故障可生成设备缺陷工单 |
+| [equipment-inspection](https://github.com/nizuowanzhenbang/equipment-inspection) | 8003 / 5175 | 共享设备台账；未来 CEMS `FAULT` 自动生成设备缺陷工单 |
 | [plant-safety](https://github.com/nizuowanzhenbang/plant-safety) | 8000 / 5173 | 严重超标告警 → 推送环保隐患（v2 规划） |
-| [coal-quality-monitor](https://github.com/nizuowanzhenbang/coal-quality-monitor) | – | 入厂煤质硫分异常 → 预警 SO₂ 突升（v2 规划） |
-| [smart-power-plant](https://github.com/nizuowanzhenbang/smart-power-plant) | – | 总览门户，6 大子系统入口 |
+| [coal-quality-monitor](https://github.com/nizuowanzhenbang/coal-quality-monitor) | – | 入厂煤硫分异常 → 前端 Banner 预警 SO₂ 突升（v2 规划） |
 
-`app/config.py` 已预留 `INTEGRATION_SECRET / SAFETY_SYSTEM_URL / INSPECTION_SYSTEM_URL` 用于 v2 联动。
+> 🧩 `app/config.py` 已预留 `INTEGRATION_SECRET / SAFETY_SYSTEM_URL / INSPECTION_SYSTEM_URL`，v2 版本会把这三个系统真正打通。
 
-## 已知简化
+---
+
+## 🚧 已知简化（v1.0）
 
 - 没有 APScheduler（v1 只有触发式告警；v2 加月报自动出 + CEMS 可用率扫描）
 - 没有 WebSocket（v2 加严重超标实时推送）
 - 没有真正的 GB13223 月度归档报送（仅站内闭环）
 - 没有照片附件实际存储（v2 加 S3/MinIO）
 
-## License
+## 📜 License
 
 私有项目，未开源。
