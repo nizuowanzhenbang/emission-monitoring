@@ -1,0 +1,39 @@
+# 数据库
+*.db
+*.sqlite
+*.sqlite3
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# 环境变量
+.env
+.env.local
+.env.*.local
+
+# 上传/缓存
+uploads/
+*.log
+
+# Node
+node_modules/
+dist/
+.vite/
+*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
