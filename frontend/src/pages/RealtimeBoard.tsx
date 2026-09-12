@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Row, Col, Card, Tag, Space, Select, Typography, Statistic } from 'antd'
 import ReactECharts from 'echarts-for-react'
 import dayjs from 'dayjs'
-import { dashboardApi, readingApi } from '../api'
+import { dashboardApi } from '../api'
 import type { RealtimeItem } from '../types'
 
 const { Title, Text } = Typography
